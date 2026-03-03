@@ -1,5 +1,5 @@
 
-# GigAlert — Live Upwork Job Monitor (Demo)
+# GigAlert — (Demo)
 
 GigAlert is a single-page interactive prototype that demonstrates a real-time job monitoring dashboard for Upwork-style freelance workflows.
 
@@ -103,9 +103,3 @@ Each job includes:
 - Email or push notification integration
 - Match algorithm scoring engine
 - User authentication layer
-
----
-
-## Author
-
-Built as a rapid systems prototype to demonstrate workflow automation thinking and frontend execution capability.
