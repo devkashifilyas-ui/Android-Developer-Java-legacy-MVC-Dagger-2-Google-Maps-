@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GigAlert — Live Upwork Job Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0b0d;
+    --surface: #111318;
+    --border: #1e2129;
+    --border-bright: #2e3340;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --accent: #14f195;
+    --accent2: #7c3aed;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --tag-bg: #161922;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID NOISE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(20,241,149,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(20,241,149,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .layout {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 56px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(10,11,13,0.9);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(20,241,149,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(20,241,149,0); }
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(20,241,149,0.08);
+    border: 1px solid rgba(20,241,149,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.5s ease-in-out infinite;
+  }
+  @keyframes blink {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    background: var(--surface);
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    padding: 0 16px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .sidebar-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    padding: 0 4px;
+  }
+
+  .filter-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+  }
+  .filter-chip:hover { background: var(--border); }
+  .filter-chip.active {
+    background: rgba(20,241,149,0.08);
+    border: 1px solid rgba(20,241,149,0.15);
+  }
+  .chip-label { display: flex; align-items: center; gap: 8px; }
+  .chip-icon { font-size: 14px; }
+  .chip-count {
+    font-size: 10px;
+    background: var(--border-bright);
+    padding: 2px 7px;
+    border-radius: 10px;
+    color: var(--muted);
+  }
+  .filter-chip.active .chip-count {
+    background: rgba(20,241,149,0.15);
+    color: var(--accent);
+  }
+
+  .alert-config {
+    background: var(--tag-bg);
+    border: 1px solid var(--border-bright);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 0 16px;
+  }
+  .alert-config-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+  .config-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .config-key { color: var(--muted); font-size: 11px; }
+  .config-val {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .toggle-label { font-size: 11px; color: var(--text); }
+  .toggle {
+    width: 32px; height: 18px;
+    background: var(--accent);
+    border-radius: 9px;
+    position: relative;
+    cursor: pointer;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    top: 3px; right: 3px;
+    transition: 0.2s;
+  }
+
+  /* ── MAIN ── */
+  .main {
+    padding: 24px;
+    overflow-y: auto;
+  }
+
+  .main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+  }
+  .page-sub {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 4px;
+  }
+
+  .scan-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 18px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .scan-btn:hover { opacity: 0.85; }
+
+  /* STATS ROW */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-card.green::before { background: var(--accent); }
+  .stat-card.purple::before { background: var(--accent2); }
+  .stat-card.yellow::before { background: var(--warn); }
+  .stat-card.red::before { background: var(--danger); }
+
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .stat-value {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-card.green .stat-value { color: var(--accent); }
+  .stat-card.purple .stat-value { color: #a78bfa; }
+  .stat-card.yellow .stat-value { color: var(--warn); }
+  .stat-card.red .stat-value { color: var(--danger); }
+  .stat-delta { font-size: 10px; color: var(--muted); }
+  .stat-delta span { color: var(--accent); }
+
+  /* JOBS */
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .sort-btn {
+    font-size: 11px;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .job-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .job-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .job-card:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+  .job-card.hot {
+    border-color: rgba(20,241,149,0.2);
+  }
+  .job-card.hot::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(20,241,149,0.03), transparent);
+    pointer-events: none;
+  }
+
+  .job-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .job-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.3;
+    flex: 1;
+    padding-right: 16px;
+  }
+  .hot-badge {
+    background: rgba(20,241,149,0.1);
+    border: 1px solid rgba(20,241,149,0.25);
+    color: var(--accent);
+    font-size: 9px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .new-badge {
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.25);
+    color: #a78bfa;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .match-badge {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.25);
+    color: var(--warn);
+    font-size: 9px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  .job-meta {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .meta-icon { font-size: 12px; }
+
+  .job-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .tag {
+    background: var(--tag-bg);
+    border: 1px solid var(--border-bright);
+    border-radius: 5px;
+    padding: 3px 9px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .tag.match {
+    border-color: rgba(20,241,149,0.25);
+    color: var(--accent);
+    background: rgba(20,241,149,0.05);
+  }
+
+  .job-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .job-score {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .score-label { font-size: 10px; color: var(--muted); }
+  .score-bar {
+    width: 80px; height: 4px;
+    background: var(--border-bright);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .score-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 2px;
+    transition: width 0.8s ease;
+  }
+  .score-pct {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .job-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-ghost {
+    background: none;
+    color: var(--muted);
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+  /* SCANNING ANIMATION */
+  .scan-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,11,13,0.85);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .scan-overlay.active { display: flex; }
+  .scan-box {
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    border-radius: 16px;
+    padding: 40px 48px;
+    text-align: center;
+    width: 360px;
+  }
+  .scan-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+  .scan-sub { color: var(--muted); font-size: 12px; margin-bottom: 28px; }
+  .scan-progress {
+    height: 3px;
+    background: var(--border-bright);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .scan-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 2px;
+    animation: scanProgress 2.5s ease forwards;
+  }
+  @keyframes scanProgress {
+    0% { width: 0%; }
+    100% { width: 100%; }
+  }
+  .scan-log {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: left;
+    line-height: 1.8;
+  }
+  .scan-log span { color: var(--accent); }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid rgba(20,241,149,0.3);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 300;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    max-width: 320px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast-icon { font-size: 18px; }
+  .toast-text { font-size: 12px; }
+  .toast-title { font-family: 'Syne', sans-serif; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+  .toast-body { color: var(--muted); }
+
+  /* ENTRY ANIMATION */
+  .job-card {
+    animation: slideIn 0.4s ease backwards;
+  }
+  .job-card:nth-child(1) { animation-delay: 0.05s; }
+  .job-card:nth-child(2) { animation-delay: 0.1s; }
+  .job-card:nth-child(3) { animation-delay: 0.15s; }
+  .job-card:nth-child(4) { animation-delay: 0.2s; }
+  .job-card:nth-child(5) { animation-delay: 0.25s; }
+
+  @keyframes slideIn {
+    from { opacity:0; transform: translateY(16px); }
+    to { opacity:1; transform: translateY(0); }
+  }
+
+  .ticker {
+    background: rgba(20,241,149,0.05);
+    border-top: 1px solid rgba(20,241,149,0.1);
+    border-bottom: 1px solid rgba(20,241,149,0.1);
+    padding: 6px 24px;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-bottom: 20px;
+    border-radius: 8px;
+  }
+  .ticker span { color: var(--accent); margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      GigAlert
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        Scanning live
+      </div>
+      <div class="avatar">YA</div>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Categories</div>
+      <div class="filter-chip active" onclick="filterJobs('all')">
+        <div class="chip-label"><span class="chip-icon">⬡</span> All Jobs</div>
+        <div class="chip-count">5</div>
+      </div>
+      <div class="filter-chip" onclick="filterJobs('nextjs')">
+        <div class="chip-label"><span class="chip-icon">▲</span> Next.js / React</div>
+        <div class="chip-count">2</div>
+      </div>
+      <div class="filter-chip" onclick="filterJobs('android')">
+        <div class="chip-label"><span class="chip-icon">◈</span> Android / Java</div>
+        <div class="chip-count">2</div>
+      </div>
+      <div class="filter-chip" onclick="filterJobs('backend')">
+        <div class="chip-label"><span class="chip-icon">◇</span> Backend / Node</div>
+        <div class="chip-count">1</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Budget Filter</div>
+      <div class="filter-chip" onclick="filterBudget('high')">
+        <div class="chip-label"><span class="chip-icon">↑</span> $40–$70/hr</div>
+        <div class="chip-count">3</div>
+      </div>
+      <div class="filter-chip" onclick="filterBudget('mid')">
+        <div class="chip-label"><span class="chip-icon">→</span> $15–$40/hr</div>
+        <div class="chip-count">2</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Client Quality</div>
+      <div class="filter-chip active">
+        <div class="chip-label"><span class="chip-icon">★</span> 5.0 only</div>
+        <div class="chip-count">4</div>
+      </div>
+      <div class="filter-chip">
+        <div class="chip-label"><span class="chip-icon">◎</span> $100K+ spent</div>
+        <div class="chip-count">2</div>
+      </div>
+    </div>
+
+    <div class="alert-config">
+      <div class="alert-config-title">⚡ Alert Config</div>
+      <div class="config-row">
+        <div class="config-key">Scan interval</div>
+        <div class="config-val">every 5 min</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">Keywords</div>
+        <div class="config-val">Next.js, Android</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">Min budget</div>
+        <div class="config-val">$15/hr</div>
+      </div>
+      <div class="config-row">
+        <div class="config-key">Min rating</div>
+        <div class="config-val">4.8 ★</div>
+      </div>
+      <div class="toggle-row">
+        <div class="toggle-label">Push notifications</div>
+        <div class="toggle"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="main-header">
+      <div>
+        <div class="page-title">Live Gig Feed</div>
+        <div class="page-sub">Last scanned: 2 minutes ago · 5 matched jobs</div>
+      </div>
+      <button class="scan-btn" onclick="triggerScan()">
+        ⟳ Scan Now
+      </button>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats">
+      <div class="stat-card green">
+        <div class="stat-label">Matched Today</div>
+        <div class="stat-value">12</div>
+        <div class="stat-delta">+<span>4</span> from yesterday</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-label">Proposals Sent</div>
+        <div class="stat-value">3</div>
+        <div class="stat-delta"><span>2</span> awaiting reply</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-label">Avg Match Score</div>
+        <div class="stat-value">82%</div>
+        <div class="stat-delta">Based on <span>skill</span> overlap</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Connects Used</div>
+        <div class="stat-value">63</div>
+        <div class="stat-delta"><span>456</span> remaining</div>
+      </div>
+    </div>
+
+    <!-- TICKER -->
+    <div class="ticker">
+      <span>NEW</span> Senior Next.js Engineer posted 4 min ago ·
+      <span>NEW</span> Android Java Developer posted 1 hr ago ·
+      <span>TRENDING</span> TypeScript + Supabase jobs up 18% this week
+    </div>
+
+    <!-- JOB LIST -->
+    <div class="section-head">
+      <div class="section-title">Matched Jobs</div>
+      <button class="sort-btn">Sort: Newest ↓</button>
+    </div>
+
+    <div class="job-list" id="jobList">
+
+      <!-- JOB 1 -->
+      <div class="job-card hot" data-cat="nextjs">
+        <div class="job-top">
+          <div class="job-title">Senior Next.js/React Engineer for SaaS Web App Development</div>
+          <div class="hot-badge">🔥 Hot</div>
+        </div>
+        <div class="job-meta">
+          <div class="meta-item"><span class="meta-icon">💰</span> $40–$70/hr</div>
+          <div class="meta-item"><span class="meta-icon">⏱</span> 1–3 months · 30+ hrs/wk</div>
+          <div class="meta-item"><span class="meta-icon">★</span> 5.0 · 39 reviews</div>
+          <div class="meta-item"><span class="meta-icon">💵</span> $114K spent</div>
+          <div class="meta-item"><span class="meta-icon">🕐</span> 1 hour ago</div>
+        </div>
+        <div class="job-tags">
+          <span class="tag match">Next.js</span>
+          <span class="tag match">TypeScript</span>
+          <span class="tag match">Supabase</span>
+          <span class="tag match">Vercel</span>
+          <span class="tag">React</span>
+          <span class="tag">Node.js</span>
+          <span class="tag">SaaS</span>
+        </div>
+        <div class="job-bottom">
+          <div class="job-score">
+            <div class="score-label">Match</div>
+            <div class="score-bar"><div class="score-fill" style="width:94%"></div></div>
+            <div class="score-pct">94%</div>
+          </div>
+          <div class="job-actions">
+            <button class="btn-ghost" onclick="dismiss(this)">Dismiss</button>
+            <button class="btn-primary" onclick="showToast('Proposal generator opened for Next.js role')">Propose →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOB 2 -->
+      <div class="job-card hot" data-cat="android">
+        <div class="job-top">
+          <div class="job-title">Android Developer (Java, Legacy MVC, Dagger 2, Google Maps)</div>
+          <div class="hot-badge">🔥 Hot</div>
+        </div>
+        <div class="job-meta">
+          <div class="meta-item"><span class="meta-icon">💰</span> $15–$30/hr</div>
+          <div class="meta-item"><span class="meta-icon">⏱</span> 3–6 months · 30+ hrs/wk</div>
+          <div class="meta-item"><span class="meta-icon">★</span> 5.0 · 142 reviews</div>
+          <div class="meta-item"><span class="meta-icon">💵</span> $1.9M spent</div>
+          <div class="meta-item"><span class="meta-icon">🕐</span> Yesterday</div>
+        </div>
+        <div class="job-tags">
+          <span class="tag match">Android Java</span>
+          <span class="tag match">Dagger 2</span>
+          <span class="tag match">Google Maps SDK</span>
+          <span class="tag match">Retrofit 2</span>
+          <span class="tag">Legacy MVC</span>
+          <span class="tag">OkHttp 3</span>
+          <span class="tag">GPS Streaming</span>
+        </div>
+        <div class="job-bottom">
+          <div class="job-score">
+            <div class="score-label">Match</div>
+            <div class="score-bar"><div class="score-fill" style="width:91%"></div></div>
+            <div class="score-pct">91%</div>
+          </div>
+          <div class="job-actions">
+            <button class="btn-ghost" onclick="dismiss(this)">Dismiss</button>
+            <button class="btn-primary" onclick="showToast('Proposal generator opened for Android role')">Propose →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOB 3 -->
+      <div class="job-card" data-cat="backend">
+        <div class="job-top">
+          <div class="job-title">Senior Node.js Backend Engineer for AI Workflow Scaling</div>
+          <div class="new-badge">New</div>
+        </div>
+        <div class="job-meta">
+          <div class="meta-item"><span class="meta-icon">💰</span> $50–$80/hr</div>
+          <div class="meta-item"><span class="meta-icon">⏱</span> 1–3 months · Ongoing</div>
+          <div class="meta-item"><span class="meta-icon">★</span> 5.0 · 39 reviews</div>
+          <div class="meta-item"><span class="meta-icon">💵</span> $114K spent</div>
+          <div class="meta-item"><span class="meta-icon">🕐</span> 3 hours ago</div>
+        </div>
+        <div class="job-tags">
+          <span class="tag match">Node.js</span>
+          <span class="tag match">TypeScript</span>
+          <span class="tag">AI Workflows</span>
+          <span class="tag">Queue Systems</span>
+          <span class="tag">Postgres</span>
+        </div>
+        <div class="job-bottom">
+          <div class="job-score">
+            <div class="score-label">Match</div>
+            <div class="score-bar"><div class="score-fill" style="width:78%"></div></div>
+            <div class="score-pct">78%</div>
+          </div>
+          <div class="job-actions">
+            <button class="btn-ghost" onclick="dismiss(this)">Dismiss</button>
+            <button class="btn-primary" onclick="showToast('Proposal generator opened for Node.js role')">Propose →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOB 4 -->
+      <div class="job-card" data-cat="android">
+        <div class="job-top">
+          <div class="job-title">iOS Developer (Obj-C) — Legacy Codebase Maintenance</div>
+          <div class="match-badge">Partial match</div>
+        </div>
+        <div class="job-meta">
+          <div class="meta-item"><span class="meta-icon">💰</span> $20–$40/hr</div>
+          <div class="meta-item"><span class="meta-icon">⏱</span> 3–6 months</div>
+          <div class="meta-item"><span class="meta-icon">★</span> 5.0 · 142 reviews</div>
+          <div class="meta-item"><span class="meta-icon">💵</span> $1.9M spent</div>
+          <div class="meta-item"><span class="meta-icon">🕐</span> 6 hours ago</div>
+        </div>
+        <div class="job-tags">
+          <span class="tag">Objective-C</span>
+          <span class="tag match">Legacy Codebase</span>
+          <span class="tag">iOS</span>
+          <span class="tag">UIKit</span>
+        </div>
+        <div class="job-bottom">
+          <div class="job-score">
+            <div class="score-label">Match</div>
+            <div class="score-bar"><div class="score-fill" style="width:55%"></div></div>
+            <div class="score-pct">55%</div>
+          </div>
+          <div class="job-actions">
+            <button class="btn-ghost" onclick="dismiss(this)">Dismiss</button>
+            <button class="btn-primary" onclick="showToast('Proposal generator opened for iOS role')">Propose →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOB 5 -->
+      <div class="job-card" data-cat="nextjs">
+        <div class="job-top">
+          <div class="job-title">Full Stack Developer (React, TypeScript, Node.js) with Vibe Coding Experience</div>
+          <div class="new-badge">New</div>
+        </div>
+        <div class="job-meta">
+          <div class="meta-item"><span class="meta-icon">💰</span> $25–$50/hr</div>
+          <div class="meta-item"><span class="meta-icon">⏱</span> Ongoing project</div>
+          <div class="meta-item"><span class="meta-icon">★</span> 5.0 · 142 reviews</div>
+          <div class="meta-item"><span class="meta-icon">💵</span> $1.9M spent</div>
+          <div class="meta-item"><span class="meta-icon">🕐</span> 8 hours ago</div>
+        </div>
+        <div class="job-tags">
+          <span class="tag match">React</span>
+          <span class="tag match">TypeScript</span>
+          <span class="tag match">Node.js</span>
+          <span class="tag">Vibe Coding</span>
+          <span class="tag">Full Stack</span>
+        </div>
+        <div class="job-bottom">
+          <div class="job-score">
+            <div class="score-label">Match</div>
+            <div class="score-bar"><div class="score-fill" style="width:85%"></div></div>
+            <div class="score-pct">85%</div>
+          </div>
+          <div class="job-actions">
+            <button class="btn-ghost" onclick="dismiss(this)">Dismiss</button>
+            <button class="btn-primary" onclick="showToast('Proposal generator opened for Full Stack role')">Propose →</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- SCAN OVERLAY -->
+<div class="scan-overlay" id="scanOverlay">
+  <div class="scan-box">
+    <div class="scan-title">Scanning Upwork...</div>
+    <div class="scan-sub">Matching against your skill profile</div>
+    <div class="scan-progress"><div class="scan-bar" id="scanBar"></div></div>
+    <div class="scan-log" id="scanLog">
+      <div>▸ Connecting to Upwork feed...</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-icon">⚡</div>
+  <div class="toast-text">
+    <div class="toast-title">Action triggered</div>
+    <div class="toast-body" id="toastBody">Opening proposal tools...</div>
+  </div>
+</div>
+
+<script>
+  function filterJobs(cat) {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    document.querySelectorAll('.job-card').forEach(card => {
+      if (cat === 'all' || card.dataset.cat === cat) {
+        card.style.display = 'block';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  function filterBudget(tier) {
+    showToast('Budget filter applied: ' + tier + ' rate');
+  }
+
+  function dismiss(btn) {
+    const card = btn.closest('.job-card');
+    card.style.transition = 'all 0.3s ease';
+    card.style.opacity = '0';
+    card.style.transform = 'translateX(20px)';
+    setTimeout(() => card.remove(), 300);
+    showToast('Job dismissed from feed');
+  }
+
+  function triggerScan() {
+    const overlay = document.getElementById('scanOverlay');
+    const log = document.getElementById('scanLog');
+    overlay.classList.add('active');
+
+    const steps = [
+      { delay: 200,  text: '▸ Connecting to Upwork feed...' },
+      { delay: 600,  text: '▸ Fetching latest job postings...' },
+      { delay: 1000, text: '▸ <span>12 new jobs</span> found' },
+      { delay: 1400, text: '▸ Running keyword match: Next.js, Android...' },
+      { delay: 1800, text: '▸ Scoring against skill profile...' },
+      { delay: 2200, text: '▸ <span>2 high-confidence matches</span> detected' },
+      { delay: 2600, text: '✓ Scan complete' },
+    ];
+
+    log.innerHTML = '';
+    steps.forEach(({ delay, text }) => {
+      setTimeout(() => {
+        const line = document.createElement('div');
+        line.innerHTML = text;
+        log.appendChild(line);
+      }, delay);
+    });
+
+    setTimeout(() => {
+      overlay.classList.remove('active');
+      showToast('Scan complete — 2 new matches found');
+    }, 3200);
+  }
+
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastBody').textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3000);
+  }
+</script>
+</body>
+</html>
